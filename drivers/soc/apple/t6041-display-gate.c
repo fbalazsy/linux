@@ -144,12 +144,57 @@ static int __init gate_display_add_dart(struct of_changeset *cs, struct device_n
 	return of_changeset_update_property(cs, display, prop);
 }
 
-/* Every node of @st is there and still disabled. */
+/*
+ * The processor's firmware memory must be described: every memory-region of
+ * the dcpext node (the stage's last node) must be an available reserved-memory
+ * node. A loader that fills the regions from the ADT (m4-loader
+ * m4_dcpext_fixup) leaves disabled placeholders when it refuses, and an older
+ * loader leaves them all disabled; enabling the processor then would only
+ * make its driver fail. /chosen m4,dcpext is that loader's record (0 filled,
+ * 2 static memory), printed when the check fails.
+ */
+static bool __init gate_firmware_memory(const char *dcp)
+{
+	struct device_node *np, *region;
+	int i, n;
+	u32 record[2];
+
+	np = of_find_node_by_path(dcp);
+	if (!np)
+		return false;
+	n = of_count_phandle_with_args(np, "memory-region", NULL);
+	for (i = 0; i < n; i++) {
+		region = of_parse_phandle(np, "memory-region", i);
+		if (region && of_device_is_available(region) &&
+		    of_device_is_compatible(region, "apple,asc-mem")) {
+			of_node_put(region);
+			continue;
+		}
+		of_node_put(region);
+		n = -ENODEV;
+		break;
+	}
+	of_node_put(np);
+	if (n > 0)
+		return true;
+	np = of_find_node_by_path("/chosen");
+	if (np && !of_property_read_u32_array(np, "m4,dcpext", record, 2))
+		pr_err("%s: no firmware memory (loader record <%u %u>), nothing enabled\n", dcp,
+		       record[0], record[1]);
+	else
+		pr_err("%s: no firmware memory, nothing enabled\n", dcp);
+	of_node_put(np);
+	return false;
+}
+
+/* Every node of @st is there and still disabled, and its processor has firmware memory. */
 static bool __init gate_stage_ready(const struct gate_stage *st)
 {
 	struct device_node *np;
 	unsigned int i;
 
+	if (!gate_firmware_memory(st->nodes[st->nr - 1]))
+		return false;
 	for (i = 0; i < st->nr; i++) {
 		np = of_find_node_by_path(st->nodes[i]);
 		if (!np) {
