@@ -1088,6 +1088,8 @@
 
 /* External displays: resources of the J616s, all disabled until enabled at run time. */
 #include "t6040-j616s-extdisp.dtsi"
-#include "t6040-j616s-extdisp-mem.dtsi"
+/* dcpext firmware memory: placeholders the boot loader fills from the ADT (m4-loader m4_dcpext_fixup);
+ * this unit's static values are t6040-j616s-extdisp-mem.dtsi (one of the two, never both). */
+#include "t6040-j616s-extdisp-mem-loader.dtsi"
 #include "t6040-j616s-extdisp-hdmi.dtsi"
 #include "t6040-j616s-extdisp-usbc.dtsi"
