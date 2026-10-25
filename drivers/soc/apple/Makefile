@@ -32,6 +32,9 @@ DTC_FLAGS_t6030-gate-test := -Wno-interrupts_property -Wno-chosen_node_is_root \
 			     -Wno-avoid_unnecessary_addr_size
 DTC_FLAGS_t8122-gate-test := -Wno-interrupts_property -Wno-chosen_node_is_root
 
+obj-$(CONFIG_APPLE_T6041_DISPLAY_GATE) += apple-t6041-display-gate.o
+apple-t6041-display-gate-y := t6041-display-gate.o
+
 obj-$(CONFIG_APPLE_TUNABLE) += apple-tunable.o
 apple-tunable-y = tunable.o
 

@@ -1,0 +1,16 @@
+Work in progress: how the J616s external display chain is brought up on one unit.
+
+Order (m4-extdisp-preload, run as the modprobe install hook of appledrm, before
+appledrm loads):
+  1. modprobe apple-t6041-display-gate enable=1 (drivers/soc/apple/t6041-display-gate.c).
+     Stage 1 enables the HDMI chain (PMP DISPEXT0 acknowledgement and FAB7_SOC
+     through the genpd parents, DISPEXT0, ATC3, crossbar, DARTs, dcpext0), waits
+     3 s, stage 2 enables the Type-C chain (DISPEXT1, dcpext1) with its
+     typec-routes in the same changeset. All at once crashed dcpext0.
+  2. appledrm loads and binds the internal DCP, dcpext0 and dcpext1 together.
+  3. m4-extdisp-rebind-tipd rebinds the SPMI usb-pd devices once the route mode
+     switches exist, because tipd looks for display routes only at probe.
+
+The scripts are copied from the daily tree as they are; paths, node names and
+the try-once flag handling are specific to it. The memory values in
+t6040-j616s-extdisp-mem.dtsi are those of macOS 25G83 on one unit.

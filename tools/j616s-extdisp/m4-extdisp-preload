@@ -1,0 +1,48 @@
+#!/bin/sh
+# modprobe install hook for appledrm (/usr/lib/modprobe.d/m4-extdisp.conf). Normally it only loads appledrm.
+# With the one-shot flag /var/lib/m4-extdisp/try-once present it first REMOVES the flag (synced to disk, so a hang
+# cannot repeat on the next boot), switches the J616s HDMI nodes on with m4-extdisp-steps (up to the step number in
+# the flag, default all), and only then loads appledrm, so the display master binds the internal DCP and dcpext0
+# together on its first load (a later unbind/bind of the master hangs the internal DCP).
+# Safe mode (m4.safe) keeps appledrm unloaded, as m4-support's own install line in m4.conf (this file sorts first).
+grep -qsw m4.safe /proc/cmdline && exit 0
+# apple_t6041_display.enable=1 on the command line: the kernel gate (t6041-display-gate.c) enables the whole chain
+# itself before devices exist, no steps and no tipd rebind.
+if grep -qw apple_t6041_display.enable=1 /proc/cmdline; then
+	echo "m4-extdisp-preload: kernel display gate requested, no userspace steps" > /dev/kmsg
+	exec /usr/bin/modprobe --ignore-install appledrm "$@"
+fi
+FLAG=/var/lib/m4-extdisp/try-once
+# Serialize: the devices the steps create raise more appledrm modprobes (udev); they wait here until the first
+# invocation has enabled every node and loaded the module (the lock fd stays open across the exec).
+exec 9>/run/m4-extdisp-preload.lock
+flock 9
+TRACE=
+if [ -e "$FLAG" ]; then
+	TRACE=compact_trace=1	# log every compact EPIC call of the test boot
+	last=$(tr -dc 0-9 < "$FLAG")
+	rm -f "$FLAG"
+	sync
+	echo "m4-extdisp-preload: try-once, steps up to ${last:-all}" > /dev/kmsg
+	# The kernel gate (apple-t6041-display-gate, two stages: HDMI chain, then Type-C chain + routes) replaces the
+	# steps when the module is there and the DTB has the Type-C routes. Kill switch: /var/lib/m4-extdisp/no-gate.
+	if [ ! -e /var/lib/m4-extdisp/no-gate ] && [ -e /proc/device-tree/dcp@602e00000/typec-routes ] &&
+	   /usr/bin/modinfo -n apple-t6041-display-gate >/dev/null 2>&1; then
+		echo "m4-extdisp-preload: kernel display gate module instead of the steps" > /dev/kmsg
+		if /usr/bin/modprobe apple-t6041-display-gate enable=1 >/dev/null 2>&1 &&
+		   dmesg | grep -q "apple-t6041-display: stage 1 enabled"; then
+			echo "$(date -Is) steps done up to gate" >> /var/log/m4-extdisp-steps.log
+		else
+			echo "m4-extdisp-preload: gate did not complete, running the steps" > /dev/kmsg
+			M4_STEP_SLEEP=1 /usr/bin/m4-extdisp-steps $last >/dev/null 2>&1
+		fi
+	else
+		M4_STEP_SLEEP=1 /usr/bin/m4-extdisp-steps $last >/dev/null 2>&1
+	fi
+	sync
+	systemd-run --no-block --unit=m4-extdisp-rebind-tipd /usr/bin/m4-extdisp-rebind-tipd >/dev/null 2>&1
+	# a failed takeover leaves the internal panel dark: m4-extdisp-tryonce-check reboots cleanly once
+	systemd-run --no-block --on-active=120 --unit=m4-extdisp-tryonce-check \
+		/usr/bin/m4-extdisp-tryonce-check >/dev/null 2>&1
+fi
+exec /usr/bin/modprobe --ignore-install appledrm "$@" $TRACE

@@ -282,6 +282,16 @@ config APPLE_DISPLAY_GATE_KUNIT_TEST
 	  and nothing changed when the handoff or the device tree's own PMP
 	  topology does not check out.
 
+config APPLE_T6041_DISPLAY_GATE
+	tristate "Apple T6041 (J616s) external display enable gate"
+	depends on ARCH_APPLE && OF_DYNAMIC
+	default m
+	help
+	  Enable the J616s external display chain (dcpext, DISPEXT power
+	  domains, ATC3, crossbars, DARTs, Type-C routes) from the kernel: built
+	  in, when apple_t6041_display.enable=1 is on the command line; as a
+	  module, when it is loaded with enable=1. Otherwise it does nothing.
+
 endmenu
 
 endif

@@ -1,0 +1,16 @@
+#!/bin/bash
+# Started by m4-extdisp-preload (systemd-run) on a try-once boot. dcpext1's Type-C display routes are enabled by
+# m4-extdisp-steps and registered as mode switches when appledrm's apple-dcp probes dcpext1; the Type-C port controllers
+# (SPMI usb-pd with a connector) look for display routes at probe only, so they are rebound once the routes exist.
+# Without the routes (DTB without typec-routes, dcpext1 not probed) nothing is touched.
+log() { echo "m4-extdisp-rebind-tipd: $*" > /dev/kmsg; }
+[ -e /proc/device-tree/dcp@602e00000/typec-routes ] || { log "no typec-routes in the DTB, nothing to do"; exit 0; }
+M=/sys/class/typec_mux/602e00000.dcp-typec2-mux
+for _ in $(seq 120); do [ -e $M ] && break; sleep 0.5; done
+[ -e $M ] || { log "dcpext1 route mode switches not registered after 60 s, ports left as they are"; exit 0; }
+for d in /sys/bus/spmi/devices/*; do
+	[ -e "$d/of_node/connector" ] && [ -e "$d/driver" ] || continue
+	n=${d##*/}; drv=$(readlink -f "$d/driver")
+	echo "$n" > "$drv/unbind"; sleep 1
+	echo "$n" > "$drv/bind" && log "rebound $n" || log "rebind of $n failed"
+done
