@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+/*
+ * Static firmware memory of the external DCPs, the alternative to a boot
+ * loader publishing it. This unit's macOS 25G83 values, read from its ADT
+ * (iop-dcpextN-nub segment-ranges) and identical in all seven retained
+ * captures. They go stale after any macOS or iBoot update: the loader
+ * computes the internal DCP's on every boot, this file does not.
+ *
+ * Same form as the loader's dcp-map pool for the internal DCP (DVA = ADT
+ * remap address - 0x100_0000_0000, size rounded up to 16 KiB). __TEXT is
+ * shared with the internal DCP (dcp-map@100002f4000), hence the duplicate
+ * unit address dtc reports for dcpext0-text and dcpext1-text; the per-boot
+ * __OS_LOG segment is left out, as the loader does for the internal DCP.
+ * All of it lies outside Linux RAM.
+ */
+
+/ {
+	reserved-memory {
+		dcpext0_text: dcpext0-text@100002f4000 {
+			compatible = "apple,asc-mem";
+			reg = <0x100 0x002f4000 0x0 0x6d0000>;
+			no-map;
+			iommu-addresses = <&dcpext0 0x0 0x090d4000 0x0 0x6d0000>;
+		};
+
+		dcpext0_data: dcpext0-data@10bd0e20000 {
+			compatible = "apple,asc-mem";
+			reg = <0x10b 0xd0e20000 0x0 0x2c4000>;
+			no-map;
+			iommu-addresses = <&dcpext0 0x0 0x097a4000 0x0 0x2c4000>;
+		};
+
+		dcpext0_heap: dcpext0-heap@10bcfe20000 {
+			compatible = "apple,asc-mem";
+			reg = <0x10b 0xcfe20000 0x0 0x1000000>;
+			no-map;
+			iommu-addresses = <&dcpext0 0x0 0x09a68000 0x0 0x1000000>;
+		};
+
+		dcpext1_text: dcpext1-text@100002f4000 {
+			compatible = "apple,asc-mem";
+			reg = <0x100 0x002f4000 0x0 0x6d0000>;
+			no-map;
+			iommu-addresses = <&dcpext1 0x0 0x090d4000 0x0 0x6d0000>;
+		};
+
+		dcpext1_data: dcpext1-data@10bcfb5c000 {
+			compatible = "apple,asc-mem";
+			reg = <0x10b 0xcfb5c000 0x0 0x2c4000>;
+			no-map;
+			iommu-addresses = <&dcpext1 0x0 0x097a4000 0x0 0x2c4000>;
+		};
+
+		dcpext1_heap: dcpext1-heap@10bceb5c000 {
+			compatible = "apple,asc-mem";
+			reg = <0x10b 0xceb5c000 0x0 0x1000000>;
+			no-map;
+			iommu-addresses = <&dcpext1 0x0 0x09a68000 0x0 0x1000000>;
+		};
+	};
+};
+
+&dcpext0 {
+	memory-region = <&dcpext0_text>, <&dcpext0_data>, <&dcpext0_heap>;
+	memory-region-names = "dcp-map@100002f4000", "dcp-map@10bd0e20000",
+			      "dcp-map@10bcfe20000";
+	apple,firmware-version = <26 6 2>;
+	apple,firmware-compat = <26 6 2>;
+};
+
+&dcpext1 {
+	memory-region = <&dcpext1_text>, <&dcpext1_data>, <&dcpext1_heap>;
+	memory-region-names = "dcp-map@100002f4000", "dcp-map@10bcfb5c000",
+			      "dcp-map@10bceb5c000";
+	apple,firmware-version = <26 6 2>;
+	apple,firmware-compat = <26 6 2>;
+};

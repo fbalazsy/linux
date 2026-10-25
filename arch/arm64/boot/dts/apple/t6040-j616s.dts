@@ -1085,3 +1085,9 @@
 };
 
 #include "t6040-j616s-usb3.dtsi"
+
+/* External displays: resources of the J616s, all disabled until enabled at run time. */
+#include "t6040-j616s-extdisp.dtsi"
+#include "t6040-j616s-extdisp-mem.dtsi"
+#include "t6040-j616s-extdisp-hdmi.dtsi"
+#include "t6040-j616s-extdisp-usbc.dtsi"
